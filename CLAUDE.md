@@ -173,7 +173,16 @@ class InsertBatchTest {
 ### 상태 관리
 - `.workflow/state.json`: 현재 진행 상태
 - `.workflow/checkpoints/`: 단계별 체크포인트
+- `.workflow/locks/`: Agent 실행 Lock 파일
+- `.workflow/sync/merge-queue.json`: 머지 큐 상태
+- `.worktrees/`: Agent별 Git Worktree (병렬 실행용)
 - 중단 후 재개 시 마지막 체크포인트부터 계속
+
+### 병렬 실행 지원
+- Git Worktrees로 Agent별 독립 작업 디렉토리 제공
+- 최대 5개 Claude Code 세션 동시 실행 가능
+- Lock 파일로 동일 Agent 중복 실행 방지
+- Phase별 Git 태그로 롤백 지점 관리
 
 ---
 
@@ -191,6 +200,88 @@ class InsertBatchTest {
 - [ ] TODO 주석 남기고 넘어가기
 - [ ] 설계 문서에 없는 임의 구조 추가
 - [ ] 한 번에 3개 이상 파일 동시 생성
+
+### 병렬 실행
+- [ ] 같은 파일을 여러 Agent가 동시 수정
+- [ ] Worktree 간 직접 파일 복사 (Git 사용)
+- [ ] sync 없이 다른 Agent 작업 영역 접근
+- [ ] Lock 무시하고 동일 Agent 중복 실행
+- [ ] main 브랜치에서 직접 작업 (worktree 사용)
+
+---
+
+## 병렬 실행 규칙 (Git Worktrees)
+
+### Worktree 구조
+```
+.worktrees/
+├── architect/    → workflow/architect 브랜치
+├── developer/    → workflow/developer 브랜치
+├── reviewer/     → workflow/reviewer 브랜치
+├── qa/           → workflow/qa 브랜치
+└── fixer/        → workflow/fixer 브랜치
+```
+
+### 병렬 실행 가능 조합
+| Agent 조합 | 가능 | 이유 |
+|------------|------|------|
+| Architect + Developer | ✅ | 독립적 작업 |
+| Developer + Reviewer | ❌ | 리뷰 의존성 |
+| Reviewer + Fixer | ✅ | 다른 이슈 작업 시 |
+| QA + Fixer | ❌ | 수정-검증 의존성 |
+| Developer + QA | ✅ | 다른 파일 작업 시 |
+
+### 동기화 규칙
+1. **작업 시작 전**: `git pull --rebase` 또는 `./scripts/workflow.sh parallel sync`
+2. **작업 완료 후**: 반드시 커밋 후 sync_to_main
+3. **충돌 발생 시**: Orchestrator에 알리고 수동 해결
+
+### 커밋 메시지 규칙 (Agent 간 통신)
+```
+[AGENT:발신자] [TO:수신자] [TYPE:메시지타입]
+
+내용
+
+---
+Timestamp: ISO8601
+```
+
+**메시지 타입:**
+- `READY`: 작업 완료, 다음 Agent에게 전달
+- `ISSUE_FOUND`: 문제 발견
+- `FIX_COMPLETE`: 수정 완료
+- `APPROVED`: 승인
+- `REJECTED`: 반려
+
+---
+
+## 롤백 전략
+
+### Git 태그 규칙
+```
+phase/DESIGN-start      # Phase 시작
+phase/DESIGN-complete   # Phase 완료
+phase/IMPLEMENT-step-01 # 단계별 체크포인트
+backup/pre-rollback-*   # 롤백 전 자동 백업
+```
+
+### 롤백 명령어
+```bash
+# 롤백 지점 확인
+./scripts/workflow.sh rollback list
+
+# 특정 태그로 롤백
+./scripts/workflow.sh rollback to phase/IMPLEMENT-step-05
+
+# 롤백 지점 생성
+./scripts/workflow.sh rollback tag "checkpoint-name"
+```
+
+### 롤백 시 주의사항
+1. 롤백 전 모든 worktree 동기화 필수
+2. 롤백 시 모든 worktree도 함께 롤백됨
+3. 롤백 전 자동으로 backup 태그 생성됨
+4. uncommitted 변경사항은 stash로 보존
 
 ---
 
@@ -243,6 +334,42 @@ mvn clean package
 mvn dependency:tree
 ```
 
+### 병렬 실행 명령어
+```bash
+# Worktree 초기화
+./scripts/workflow.sh parallel init
+
+# 병렬 세션 시작 (tmux/Terminal)
+./scripts/workflow.sh parallel start
+
+# 병렬 상태 확인
+./scripts/workflow.sh parallel status
+
+# 실시간 모니터링
+./scripts/workflow.sh parallel watch
+
+# 모든 worktree 동기화
+./scripts/workflow.sh parallel sync
+
+# Worktree 정리
+./scripts/workflow.sh parallel cleanup
+
+# 특정 Agent만 실행
+./scripts/workflow.sh parallel run developer reviewer
+```
+
+### 롤백 명령어
+```bash
+# 롤백 지점 목록
+./scripts/workflow.sh rollback list
+
+# 특정 지점으로 롤백
+./scripts/workflow.sh rollback to <tag|commit>
+
+# 롤백 태그 생성
+./scripts/workflow.sh rollback tag <name>
+```
+
 ---
 
 ## 파일 위치 규칙
@@ -257,6 +384,10 @@ mvn dependency:tree
 | 테스트 리소스 | src/test/resources/ |
 | 빌드 산출물 | target/ |
 | 커버리지 리포트 | target/site/jacoco/ |
+| Worktrees | .worktrees/{agent}/ |
+| Agent Lock | .workflow/locks/{agent}.lock |
+| 머지 큐 | .workflow/sync/merge-queue.json |
+| Agent 출력 | .worktrees/{agent}/.agent-output.md |
 
 ---
 

@@ -1,35 +1,211 @@
 # Oracle Insert Performance Benchmark
 
-JDBC batch insert와 MyBatis batch insert의 성능을 비교하는 벤치마크 프로젝트입니다.
+JDBC와 MyBatis의 Insert 성능을 비교하는 벤치마크 프로젝트입니다.
 
-## 🚀 Multi-Agent 개발 워크플로우
+## 프로젝트 목적
 
-이 프로젝트는 AI Agent 기반의 자동화된 개발 워크플로우를 사용합니다.
+대용량 데이터 처리 시 최적의 Insert 방식을 선정하기 위해 다음 4가지 방식의 성능을 측정하고 비교합니다:
 
-### 구조
+| 방식 | 설명 |
+|------|------|
+| JDBC Batch Insert | PreparedStatement + addBatch/executeBatch |
+| JDBC Single Insert | PreparedStatement + executeUpdate (개별 호출) |
+| MyBatis Batch Insert | ExecutorType.BATCH + flushStatements |
+| MyBatis Single Insert | Mapper insert 메서드 개별 호출 |
+
+### 측정 항목
+- 총 소요시간 (ms)
+- TPS (Transactions Per Second)
+- 배치당/개별 insert 평균 시간
+- 통계값 (평균, 표준편차, min, max)
+
+---
+
+## 기술 스택
+
+| 구분 | 기술 | 버전 |
+|------|------|------|
+| Language | Java | 1.8 |
+| Framework | Spring Boot | 2.7.18 |
+| Build | Maven | 3.8+ |
+| Database | Oracle | 19c |
+| ORM | MyBatis | 2.3.2 |
+| Test | JUnit 5, H2 | - |
+| Coverage | JaCoCo | 80%+ |
+
+---
+
+## 빠른 시작
+
+### 사전 요구사항
+
+- Java 1.8+
+- Maven 3.8+
+- Oracle 19c (또는 호환 DB)
+- jq (워크플로우용)
+
+### 환경 변수 설정
+
+```bash
+export DB_URL=jdbc:oracle:thin:@localhost:1521:xe
+export DB_USERNAME=benchmark
+export DB_PASSWORD=benchmark
+export BATCH_SIZE=1000
+export RECORD_COUNT=100000
+```
+
+### 빌드 및 실행
+
+```bash
+# 빌드
+mvn clean package
+
+# 테스트
+mvn test
+
+# 커버리지 리포트
+mvn jacoco:report
+# 결과: target/site/jacoco/index.html
+
+# 벤치마크 실행
+mvn spring-boot:run
+```
+
+---
+
+## 프로젝트 구조
 
 ```
-.
-├── PRD.txt                 # 📋 요구사항 정의서
-├── CLAUDE.md               # 🤖 AI 개발 지침
-├── .agents/                # Agent 역할 정의
-│   ├── orchestrator.md     # PM Agent
-│   ├── architect.md        # Architect Agent
-│   ├── developer.md        # Developer Agent
-│   ├── reviewer.md         # Reviewer Agent
-│   ├── qa.md              # QA Agent
-│   └── fixer.md           # Fixer Agent
-├── .workflow/              # 워크플로우 상태
-│   ├── state.json         # 진행 상태
-│   ├── checkpoints/       # 체크포인트
-│   └── artifacts/         # 산출물
-└── scripts/
-    ├── workflow.sh        # 메인 워크플로우
-    ├── status.sh          # 상태 확인
-    └── resume.sh          # 재개
+java-oracle-benchmark/
+├── PRD.txt                 # 요구사항 정의서
+├── CLAUDE.md               # AI 개발 지침
+├── .agents/                # Multi-Agent 역할 정의
+├── .workflow/              # 워크플로우 상태 관리
+├── scripts/                # 워크플로우 스크립트
+└── src/
+    ├── main/
+    │   ├── java/com/example/benchmark/
+    │   │   ├── BenchmarkApplication.java
+    │   │   ├── config/
+    │   │   │   ├── DataSourceConfig.java
+    │   │   │   └── MyBatisConfig.java
+    │   │   ├── domain/
+    │   │   │   └── TestRecord.java
+    │   │   ├── repository/
+    │   │   │   ├── BatchInsertRepository.java
+    │   │   │   ├── SingleInsertRepository.java
+    │   │   │   ├── JdbcBatchInsertRepository.java
+    │   │   │   ├── JdbcSingleInsertRepository.java
+    │   │   │   ├── MyBatisBatchInsertRepository.java
+    │   │   │   └── MyBatisSingleInsertRepository.java
+    │   │   ├── mapper/
+    │   │   │   └── TestRecordMapper.java
+    │   │   ├── benchmark/
+    │   │   │   ├── BenchmarkRunner.java
+    │   │   │   ├── BenchmarkResult.java
+    │   │   │   └── BenchmarkReportGenerator.java
+    │   │   └── util/
+    │   │       └── TestDataGenerator.java
+    │   └── resources/
+    │       ├── application.yml
+    │       ├── schema.sql
+    │       └── mapper/
+    │           └── TestRecordMapper.xml
+    └── test/
+        └── java/com/example/benchmark/
+            └── repository/
+                ├── JdbcBatchInsertRepositoryTest.java
+                └── MyBatisBatchInsertRepositoryTest.java
 ```
 
-### 워크플로우 실행
+---
+
+## 데이터 모델
+
+### TestRecord 테이블
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| id | NUMBER(19) | PK, 시퀀스 |
+| data1 | VARCHAR2(100) | NOT NULL |
+| data2 | VARCHAR2(200) | Nullable |
+| amount | NUMBER(18,2) | 금액 |
+| status | VARCHAR2(20) | 상태 (기본: ACTIVE) |
+| created_at | TIMESTAMP | 생성 시각 |
+
+### DDL
+
+```sql
+CREATE TABLE test_record (
+    id NUMBER(19) PRIMARY KEY,
+    data1 VARCHAR2(100) NOT NULL,
+    data2 VARCHAR2(200),
+    amount NUMBER(18,2),
+    status VARCHAR2(20) DEFAULT 'ACTIVE',
+    created_at TIMESTAMP NOT NULL
+);
+
+CREATE SEQUENCE test_record_seq START WITH 1 INCREMENT BY 1;
+```
+
+---
+
+## 벤치마크 결과
+
+벤치마크 실행 후 결과물:
+- 콘솔 출력: 실시간 진행 상황 및 요약
+- CSV 파일: `benchmark-results/` 디렉토리에 저장
+
+### 예상 출력 형식
+
+```
+=====================================
+     BENCHMARK RESULTS SUMMARY
+=====================================
+Record Count: 100,000 | Iterations: 3
+
+Method                  | Avg Time (ms) | TPS      | StdDev
+------------------------|---------------|----------|--------
+JDBC Batch Insert       |         3,200 |   31,250 |    150
+MyBatis Batch Insert    |         3,800 |   26,316 |    200
+JDBC Single Insert      |        45,000 |    2,222 |  1,500
+MyBatis Single Insert   |        52,000 |    1,923 |  1,800
+=====================================
+```
+
+---
+
+## Multi-Agent 개발 워크플로우
+
+이 프로젝트는 AI Agent 기반의 자동화된 개발 워크플로우를 지원합니다.
+
+### Agent 역할
+
+| Agent | 역할 | 산출물 |
+|-------|------|--------|
+| Orchestrator | 전체 워크플로우 제어 | implementation-plan.md |
+| Architect | 기술 설계 및 구조 결정 | architecture.md |
+| Developer | 코드 구현 | 소스 코드 |
+| Reviewer | 코드 품질 검토 | review-report.md |
+| QA | 테스트 및 커버리지 검증 | qa-report.md |
+| Fixer | 리뷰/QA 이슈 수정 | 수정된 코드 |
+
+### 워크플로우 단계
+
+```
+INIT → DESIGN → PLAN → IMPLEMENT → REVIEW → QA → COMPLETE
+```
+
+### 품질 게이트
+
+| 전환 | 필수 조건 |
+|------|----------|
+| DESIGN → IMPLEMENT | 아키텍처 문서 완성 |
+| IMPLEMENT → REVIEW | 컴파일 통과, 기본 테스트 통과 |
+| REVIEW → QA | 리뷰 APPROVED |
+| QA → COMPLETE | 커버리지 80%+, 전체 테스트 통과 |
+
+### 워크플로우 명령어
 
 ```bash
 # 스크립트 실행 권한 부여
@@ -46,141 +222,58 @@ chmod +x scripts/*.sh
 
 # 처음부터 다시 시작
 ./scripts/workflow.sh new
-```
 
-### 워크플로우 단계
-
-```
-INIT → DESIGN → PLAN → IMPLEMENT → REVIEW → QA → COMPLETE
-```
-
-| 단계 | Agent | 산출물 |
-|------|-------|--------|
-| DESIGN | Architect | architecture.md |
-| PLAN | Orchestrator | implementation-plan.md |
-| IMPLEMENT | Developer | 소스 코드 |
-| REVIEW | Reviewer | review-report.md |
-| QA | QA | qa-report.md |
-
-### 품질 게이트
-
-각 단계 전환 시 자동 검증:
-- **Compile**: 컴파일 성공
-- **Test**: 테스트 통과
-- **Coverage**: 80% 이상 (QA 단계)
-
----
-
-## 📋 요구사항
-
-### 환경
-- Java 1.8 (Java 8)
-- Maven 3.8+
-- Oracle 19c
-- jq (JSON 파싱용)
-
-### 설치
-
-```bash
-# jq 설치 (Ubuntu/Debian)
-sudo apt-get install jq
-
-# jq 설치 (macOS)
-brew install jq
-
-# Claude CLI 설치 (권장)
-# https://github.com/anthropics/claude-code 참조
-```
-
-### 환경 변수
-
-```bash
-export DB_URL=jdbc:oracle:thin:@localhost:1521:xe
-export DB_USERNAME=benchmark
-export DB_PASSWORD=benchmark
-export BATCH_SIZE=1000
-export RECORD_COUNT=100000
+# 병렬 실행 (Git Worktrees)
+./scripts/workflow.sh parallel init
+./scripts/workflow.sh parallel start
 ```
 
 ---
 
-## 🛠️ 수동 빌드 & 실행
+## 설정
 
-```bash
-# 빌드
-mvn clean package
+### application.yml
 
-# 테스트
-mvn test
+```yaml
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:oracle:thin:@localhost:1521:xe}
+    username: ${DB_USERNAME:benchmark}
+    password: ${DB_PASSWORD:benchmark}
 
-# 커버리지 리포트
-mvn jacoco:report
-# 결과: target/site/jacoco/index.html
-
-# 애플리케이션 실행
-mvn spring-boot:run
+benchmark:
+  batch-size: ${BATCH_SIZE:1000}
+  record-count: ${RECORD_COUNT:100000}
+  iterations: ${ITERATIONS:3}
+  warmup-count: ${WARMUP_COUNT:1000}
 ```
 
 ---
 
-## 📊 벤치마크 결과
-
-벤치마크 실행 후 결과:
-- 콘솔 출력
-- `benchmark-results/` 디렉토리에 CSV 저장
-
----
-
-## 📁 프로젝트 구조 (구현 후)
-
-```
-src/main/java/com/example/benchmark/
-├── BenchmarkApplication.java
-├── config/
-│   ├── DataSourceConfig.java
-│   └── MyBatisConfig.java
-├── domain/
-│   └── TestRecord.java
-├── repository/
-│   ├── BatchInsertRepository.java
-│   ├── JdbcBatchInsertRepository.java
-│   └── MyBatisBatchInsertRepository.java
-├── benchmark/
-│   ├── BenchmarkRunner.java
-│   ├── BenchmarkResult.java
-│   └── BenchmarkReportGenerator.java
-└── util/
-    └── TestDataGenerator.java
-```
-
----
-
-## 🔧 트러블슈팅
+## 트러블슈팅
 
 ### 워크플로우가 멈춘 경우
 
 ```bash
-# 상태 확인
-./scripts/workflow.sh status
-
-# 상태 초기화 후 재시작
-./scripts/workflow.sh reset
-./scripts/workflow.sh new
+./scripts/workflow.sh status   # 상태 확인
+./scripts/workflow.sh reset    # 상태 초기화
+./scripts/workflow.sh new      # 새로 시작
 ```
 
-### 컴파일 에러가 해결되지 않는 경우
+### 컴파일/테스트 에러
 
 1. `.workflow/artifacts/` 산출물 확인
 2. 수동으로 코드 수정
 3. `./scripts/workflow.sh resume`로 재개
 
-### PRD 변경 후
+### Oracle 연결 문제
 
-PRD.txt 수정 후 워크플로우 실행 시 변경 감지 경고가 표시됩니다.
-필요시 새로 시작: `./scripts/workflow.sh new`
+- JDBC URL 형식 확인: `jdbc:oracle:thin:@host:port:sid`
+- 환경 변수가 올바르게 설정되었는지 확인
+- Oracle Listener 상태 확인
 
 ---
 
-## 📝 라이센스
+## 라이센스
 
 MIT License

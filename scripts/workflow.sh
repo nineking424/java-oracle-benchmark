@@ -747,7 +747,7 @@ show_help() {
     echo ""
     echo -e "${BOLD}Usage:${NC} ./workflow.sh [command]"
     echo ""
-    echo -e "${BOLD}Commands:${NC}"
+    echo -e "${BOLD}Basic Commands:${NC}"
     echo "  start     워크플로우 시작 (자동으로 재개 또는 새로 시작)"
     echo "  new       새 워크플로우 강제 시작 (이전 상태 삭제)"
     echo "  resume    마지막 체크포인트에서 재개"
@@ -755,15 +755,31 @@ show_help() {
     echo "  reset     워크플로우 상태 초기화"
     echo "  help      이 도움말 표시"
     echo ""
+    echo -e "${BOLD}Parallel Commands:${NC}"
+    echo "  parallel init      Git worktrees 초기화 (Agent별 작업 디렉토리)"
+    echo "  parallel start     병렬 Claude Code 세션 시작"
+    echo "  parallel status    병렬 실행 상태 확인"
+    echo "  parallel watch     실시간 모니터링"
+    echo "  parallel sync      모든 worktree를 main에 동기화"
+    echo "  parallel cleanup   모든 worktree 제거"
+    echo "  parallel list      Worktree 목록 조회"
+    echo ""
+    echo -e "${BOLD}Rollback Commands:${NC}"
+    echo "  rollback list      롤백 가능 지점 목록"
+    echo "  rollback to <tag>  특정 태그/커밋으로 롤백"
+    echo "  rollback tag <name> 롤백 지점 태그 생성"
+    echo ""
     echo -e "${BOLD}Examples:${NC}"
-    echo "  ./workflow.sh start      # 자동으로 시작 또는 재개"
-    echo "  ./workflow.sh status     # 현재 상태 확인"
-    echo "  ./workflow.sh new        # 처음부터 다시 시작"
+    echo "  ./workflow.sh start              # 자동으로 시작 또는 재개"
+    echo "  ./workflow.sh parallel init      # Worktree 초기화"
+    echo "  ./workflow.sh parallel start     # 병렬 세션 시작"
+    echo "  ./workflow.sh rollback list      # 롤백 지점 확인"
     echo ""
     echo -e "${BOLD}Prerequisites:${NC}"
     echo "  - PRD.txt 파일이 프로젝트 루트에 존재해야 합니다"
     echo "  - Claude CLI (claude) 설치 권장"
     echo "  - jq 설치 필요 (JSON 파싱)"
+    echo "  - Git 초기화 필요 (병렬 실행 시)"
     echo ""
 }
 
@@ -795,6 +811,117 @@ case "${1:-help}" in
         rm -rf "$WORKFLOW_DIR"
         log_info "Workflow state reset"
         echo "워크플로우 상태가 초기화되었습니다."
+        ;;
+    "parallel")
+        # 병렬 실행 명령어
+        shift
+        case "${1:-help}" in
+            "init")
+                "$SCRIPT_DIR/worktree-manager.sh" init
+                ;;
+            "start")
+                "$SCRIPT_DIR/start-parallel.sh" quick
+                ;;
+            "status"|"monitor")
+                "$SCRIPT_DIR/parallel-runner.sh" monitor
+                ;;
+            "watch")
+                "$SCRIPT_DIR/parallel-runner.sh" watch
+                ;;
+            "sync")
+                "$SCRIPT_DIR/worktree-manager.sh" sync-all
+                ;;
+            "cleanup")
+                "$SCRIPT_DIR/worktree-manager.sh" cleanup
+                ;;
+            "run")
+                shift
+                "$SCRIPT_DIR/parallel-runner.sh" run "$@"
+                ;;
+            "list")
+                "$SCRIPT_DIR/worktree-manager.sh" list
+                ;;
+            *)
+                echo "Parallel Workflow Commands:"
+                echo ""
+                echo "  parallel init      Initialize worktrees for all agents"
+                echo "  parallel start     Start parallel Claude Code sessions"
+                echo "  parallel status    Show parallel execution status"
+                echo "  parallel watch     Real-time monitoring"
+                echo "  parallel sync      Sync all worktrees to main"
+                echo "  parallel cleanup   Remove all worktrees"
+                echo "  parallel run <agents...>  Run specific agents"
+                echo "  parallel list      List all worktrees"
+                ;;
+        esac
+        ;;
+    "rollback")
+        # 롤백 명령어
+        shift
+        case "${1:-help}" in
+            "list")
+                echo -e "${BOLD}Available Rollback Points:${NC}"
+                echo ""
+                echo "  [Git Tags - Phase Completions]"
+                git tag -l "phase/*" --sort=-creatordate 2>/dev/null | head -10 | while read tag; do
+                    local tag_date=$(git log -1 --format=%ci "$tag" 2>/dev/null | cut -d' ' -f1)
+                    echo "    $tag ($tag_date)"
+                done || echo "    (no tags found)"
+                echo ""
+                echo "  [Recent Commits]"
+                git log --oneline -10 2>/dev/null || echo "    (no commits)"
+                ;;
+            "to")
+                if [ -z "$2" ]; then
+                    log_error "Tag or commit required"
+                    echo "Usage: workflow.sh rollback to <tag|commit>"
+                    exit 1
+                fi
+                local target="$2"
+                echo -e "${YELLOW}Rolling back to: $target${NC}"
+                echo ""
+                git log --oneline HEAD..."$target" 2>/dev/null | head -10
+                echo ""
+                read -p "Are you sure? (y/n) " -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    # 백업 태그 생성
+                    git tag "backup/pre-rollback-$(date +%Y%m%d%H%M%S)" 2>/dev/null || true
+                    # 롤백 실행
+                    git reset --hard "$target"
+                    # 모든 worktree도 롤백
+                    if [ -d "$PROJECT_ROOT/.worktrees" ]; then
+                        for agent in architect developer reviewer qa fixer; do
+                            local wt="$PROJECT_ROOT/.worktrees/$agent"
+                            if [ -d "$wt" ]; then
+                                (cd "$wt" && git reset --hard "$target" 2>/dev/null) || true
+                            fi
+                        done
+                    fi
+                    log_success "Rolled back to: $target"
+                else
+                    echo "Cancelled"
+                fi
+                ;;
+            "tag")
+                if [ -z "$2" ]; then
+                    log_error "Tag name required"
+                    echo "Usage: workflow.sh rollback tag <name>"
+                    exit 1
+                fi
+                local tag_name="phase/$2"
+                git tag -a "$tag_name" -m "Phase checkpoint: $2
+Timestamp: $(get_iso_date)"
+                log_success "Created tag: $tag_name"
+                ;;
+            *)
+                echo "Rollback Commands:"
+                echo ""
+                echo "  rollback list         List available rollback points"
+                echo "  rollback to <target>  Rollback to specific tag or commit"
+                echo "  rollback tag <name>   Create a rollback point tag"
+                ;;
+        esac
         ;;
     "help"|"--help"|"-h"|*)
         show_help

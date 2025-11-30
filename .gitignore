@@ -25,6 +25,11 @@ Thumbs.db
 # .workflow/state.json
 # .workflow/checkpoints/
 .workflow/logs/
+.workflow/locks/
+.workflow/sync/
+
+# Git Worktrees (병렬 Agent 실행용)
+.worktrees/
 
 # Build outputs
 out/
