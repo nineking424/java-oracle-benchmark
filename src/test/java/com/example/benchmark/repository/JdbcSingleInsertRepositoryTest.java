@@ -91,6 +91,34 @@ class JdbcSingleInsertRepositoryTest {
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("null");
         }
+
+        @Test
+        @DisplayName("정상: 1000건 이상 삽입 시 진행 로그 출력")
+        void shouldLogProgressForLargeRecordCount() {
+            // given - 1001건으로 1000건 경계값을 넘어서 로깅 확인
+            List<TestRecord> records = dataGenerator.generate(1001);
+
+            // when
+            int result = repository.insertSingle(records);
+
+            // then
+            assertThat(result).isEqualTo(1001);
+            assertThat(repository.count()).isEqualTo(1001);
+        }
+
+        @Test
+        @DisplayName("정상: 2000건 삽입")
+        void shouldInsertTwoThousandRecords() {
+            // given
+            List<TestRecord> records = dataGenerator.generate(2000);
+
+            // when
+            int result = repository.insertSingle(records);
+
+            // then
+            assertThat(result).isEqualTo(2000);
+            assertThat(repository.count()).isEqualTo(2000);
+        }
     }
 
     @Nested

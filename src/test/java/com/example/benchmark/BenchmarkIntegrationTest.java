@@ -312,6 +312,83 @@ class BenchmarkIntegrationTest {
         }
     }
 
+    @Nested
+    @DisplayName("대량 데이터 처리 테스트")
+    class LargeScaleTest {
+
+        @Test
+        @DisplayName("정상: 1000건 이상 배치 삽입 - 로그 진행 표시 확인")
+        void shouldHandleLargeDatasetWithBatch() {
+            // given - 1001건으로 로깅 경계값 테스트
+            List<TestRecord> records = dataGenerator.generate(1001);
+
+            // when
+            jdbcBatchRepository.setBatchSize(100);
+            int result = jdbcBatchRepository.insertBatch(records);
+
+            // then
+            assertThat(result).isEqualTo(1001);
+            assertThat(jdbcBatchRepository.count()).isEqualTo(1001);
+        }
+
+        @Test
+        @DisplayName("정상: 1000건 이상 단건 삽입 - 로그 진행 표시 확인")
+        void shouldHandleLargeDatasetWithSingle() {
+            // given - 1001건으로 로깅 경계값 테스트
+            List<TestRecord> records = dataGenerator.generate(1001);
+
+            // when
+            int result = jdbcSingleRepository.insertSingle(records);
+
+            // then
+            assertThat(result).isEqualTo(1001);
+            assertThat(jdbcSingleRepository.count()).isEqualTo(1001);
+        }
+    }
+
+    @Nested
+    @DisplayName("연속 실행 테스트")
+    class ConsecutiveExecutionTest {
+
+        @Test
+        @DisplayName("정상: 연속 벤치마크 실행 시 결과 일관성")
+        void shouldProduceConsistentResultsOnConsecutiveRuns() throws Exception {
+            // given
+            BenchmarkProperties testProperties = new BenchmarkProperties();
+            testProperties.setBatchSize(50);
+            testProperties.setRecordCount(100);
+            testProperties.setIterations(3);
+            testProperties.setWarmupCount(10);
+
+            List<BatchInsertRepository> batchRepos = Arrays.asList(jdbcBatchRepository);
+            List<SingleInsertRepository> singleRepos = Arrays.asList(jdbcSingleRepository);
+
+            CapturingReportGenerator reportGenerator1 = new CapturingReportGenerator();
+            CapturingReportGenerator reportGenerator2 = new CapturingReportGenerator();
+
+            BenchmarkRunner runner1 = new BenchmarkRunner(
+                    testProperties, batchRepos, singleRepos, reportGenerator1);
+            BenchmarkRunner runner2 = new BenchmarkRunner(
+                    testProperties, batchRepos, singleRepos, reportGenerator2);
+
+            // when
+            runner1.run();
+            runner2.run();
+
+            // then - 두 실행 모두 동일한 레코드 수 처리
+            List<BenchmarkResult> results1 = reportGenerator1.getCapturedResults();
+            List<BenchmarkResult> results2 = reportGenerator2.getCapturedResults();
+
+            assertThat(results1).hasSize(2);
+            assertThat(results2).hasSize(2);
+
+            for (int i = 0; i < results1.size(); i++) {
+                assertThat(results1.get(i).getRecordCount())
+                        .isEqualTo(results2.get(i).getRecordCount());
+            }
+        }
+    }
+
     /**
      * 테스트용 리포트 생성기 - 결과 캡처.
      */

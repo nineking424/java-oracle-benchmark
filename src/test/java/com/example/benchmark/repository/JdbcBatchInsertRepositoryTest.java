@@ -120,6 +120,66 @@ class JdbcBatchInsertRepositoryTest {
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("null");
         }
+
+        @Test
+        @DisplayName("경계: 배치 크기 1로 다수 레코드 삽입")
+        void shouldHandleBatchSizeOne() {
+            // given - 배치 크기를 1로 설정하여 각 레코드마다 배치 실행
+            repository.setBatchSize(1);
+            List<TestRecord> records = dataGenerator.generate(10);
+
+            // when
+            int result = repository.insertBatch(records);
+
+            // then
+            assertThat(result).isEqualTo(10);
+            assertThat(repository.count()).isEqualTo(10);
+        }
+
+        @Test
+        @DisplayName("정상: 배치 크기의 정확한 배수 삽입")
+        void shouldHandleExactMultipleOfBatchSize() {
+            // given - 50 * 3 = 150건
+            repository.setBatchSize(50);
+            List<TestRecord> records = dataGenerator.generate(150);
+
+            // when
+            int result = repository.insertBatch(records);
+
+            // then
+            assertThat(result).isEqualTo(150);
+            assertThat(repository.count()).isEqualTo(150);
+        }
+
+        @Test
+        @DisplayName("경계: 배치 크기 + 1 삽입")
+        void shouldHandleBatchSizePlusOne() {
+            // given
+            repository.setBatchSize(50);
+            List<TestRecord> records = dataGenerator.generate(51);
+
+            // when
+            int result = repository.insertBatch(records);
+
+            // then
+            assertThat(result).isEqualTo(51);
+            assertThat(repository.count()).isEqualTo(51);
+        }
+
+        @Test
+        @DisplayName("경계: 배치 크기 - 1 삽입")
+        void shouldHandleBatchSizeMinusOne() {
+            // given
+            repository.setBatchSize(50);
+            List<TestRecord> records = dataGenerator.generate(49);
+
+            // when
+            int result = repository.insertBatch(records);
+
+            // then
+            assertThat(result).isEqualTo(49);
+            assertThat(repository.count()).isEqualTo(49);
+        }
     }
 
     @Nested
