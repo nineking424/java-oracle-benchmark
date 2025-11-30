@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: java-oracle-benchmark-test
+
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=Oracle;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+
+  h2:
+    console:
+      enabled: true
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-h2.sql
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    default-executor-type: SIMPLE
+    map-underscore-to-camel-case: true
+    jdbc-type-for-null: NULL
+
+benchmark:
+  batch-size: 100
+  record-count: 1000
+  iterations: 1
+  warmup-count: 100
+
+logging:
+  level:
+    root: INFO
+    com.example.benchmark: DEBUG

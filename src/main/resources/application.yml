@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: java-oracle-benchmark
+
+  datasource:
+    url: jdbc:oracle:thin:@${HOST:localhost}:${PORT:1521}/${SERVICE:xe}
+    username: ${USERNAME:benchmark}
+    password: ${PASSWORD:benchmark}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      connection-timeout: 20000
+      pool-name: BenchmarkHikariPool
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    default-executor-type: SIMPLE
+    map-underscore-to-camel-case: true
+    jdbc-type-for-null: NULL
+
+benchmark:
+  batch-size: ${BATCH_SIZE:1000}
+  record-count: ${RECORD_COUNT:100000}
+  iterations: ${ITERATIONS:3}
+  warmup-count: ${WARMUP_COUNT:1000}
+
+logging:
+  level:
+    root: INFO
+    com.example.benchmark: DEBUG
+    org.springframework.jdbc: DEBUG
+    org.mybatis: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
