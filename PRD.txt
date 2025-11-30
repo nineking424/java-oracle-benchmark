@@ -1,0 +1,399 @@
+# Product Requirements Document
+
+## 프로젝트 정보
+- 이름: Oracle Insert Performance Benchmark
+- 버전: 1.0
+- 작성일: 2025-11-30
+- 작성자: Seoktae
+
+---
+
+## 1. 개요
+
+### 1.1 목적
+JDBC batch insert와 MyBatis batch insert의 성능을 비교하여 
+대용량 데이터 처리 시 최적의 방법을 선정한다.
+
+### 1.2 배경
+현재 시스템에서 일일 100만 건 이상의 데이터 적재가 필요하며,
+insert 성능이 전체 배치 처리 시간의 병목이 되고 있다.
+
+### 1.3 성공 기준
+- 두 방식의 성능 차이를 정량적으로 측정
+- 10만 건 기준 처리 시간, TPS 비교 리포트 생성
+- 재현 가능한 벤치마크 환경 구축
+
+---
+
+## 2. 기술 스택
+
+### 2.1 필수
+- Java 1.8 (Java 8)
+- Spring Boot 2.7.x
+- Maven 3.8+
+- Oracle 19c (JDBC Driver: ojdbc8)
+
+### 2.2 테스트/품질
+- JUnit 5
+- JaCoCo (커버리지 80% 이상)
+- Logback
+
+### 2.3 MyBatis
+- MyBatis Spring Boot Starter 2.3.x
+
+---
+
+## 3. 기능 요구사항
+
+### FR-001: JDBC Batch Insert
+- ID: FR-001
+- 우선순위: 높음
+- 설명: 순수 JDBC를 사용한 batch insert 구현
+- 상세:
+  - PreparedStatement와 addBatch/executeBatch 사용
+  - Connection pool에서 connection 획득
+  - 트랜잭션 관리 (commit/rollback)
+- 입력: List<TestRecord>
+- 출력: 삽입된 레코드 수 (int)
+- 배치 크기: 설정 가능 (기본값 1000)
+- 예외 처리: DataAccessException 래핑
+
+### FR-002: MyBatis Batch Insert
+- ID: FR-002
+- 우선순위: 높음
+- 설명: MyBatis ExecutorType.BATCH를 사용한 insert 구현
+- 상세:
+  - SqlSessionFactory에서 BATCH 모드 세션 생성
+  - Mapper 인터페이스를 통한 insert
+  - flushStatements로 배치 실행
+- 입력: List<TestRecord>
+- 출력: 삽입된 레코드 수 (int)
+- 배치 크기: 설정 가능 (기본값 1000)
+
+### FR-003: 벤치마크 실행기
+- ID: FR-003
+- 우선순위: 높음
+- 설명: 두 방식의 성능을 측정하고 비교
+- 상세:
+  - Warm-up 실행 (1000건, 결과 버림)
+  - 본 측정 (10만 건, 3회 반복)
+  - 통계 계산 (평균, 표준편차, min, max)
+- 측정 항목:
+  - 총 소요시간 (ms)
+  - TPS (transactions per second)
+  - 배치당 평균 시간
+- 출력: 콘솔 리포트 + CSV 파일
+
+### FR-004: 테스트 데이터 생성기
+- ID: FR-004
+- 우선순위: 중간
+- 설명: 벤치마크용 테스트 데이터 생성
+- 상세:
+  - 지정된 개수만큼 TestRecord 생성
+  - 랜덤 데이터로 필드 채움
+  - 재현 가능하도록 seed 설정 가능
+
+### FR-005: Single Insert 성능 측정
+- ID: FR-005
+- 우선순위: 높음
+- 설명: JDBC와 MyBatis의 단건 삽입 성능 측정
+- 상세:
+  - 각 레코드를 개별적으로 insert (batch 미사용)
+  - JDBC: PreparedStatement.executeUpdate() 개별 호출
+  - MyBatis: Mapper insert 메서드 개별 호출
+  - 배치 삽입과의 성능 차이 비교 목적
+- 입력: List<TestRecord>
+- 출력: 삽입된 레코드 수 (int)
+- 측정 항목:
+  - 총 소요시간 (ms)
+  - 개별 insert 평균 시간
+  - TPS (transactions per second)
+
+---
+
+## 4. 비기능 요구사항
+
+### NFR-001: 테스트 커버리지
+- 라인 커버리지 80% 이상
+- 핵심 Repository 클래스 90% 이상
+
+### NFR-002: 코드 품질
+- 컴파일 경고 0개
+- 모든 public 메서드에 JavaDoc
+
+### NFR-003: 설정 외부화
+- DB 연결 정보는 application.yml 또는 환경 변수
+- 배치 크기, 테스트 건수 등 설정 가능
+
+### NFR-004: 로깅
+- 각 배치 실행 시작/종료 로깅
+- 에러 발생 시 상세 스택트레이스
+
+---
+
+## 5. 데이터 모델
+
+### 5.1 TestRecord Entity
+
+| 필드 | 타입 | 제약조건 | 설명 |
+|------|------|----------|------|
+| id | Long | PK, Auto Generated | 시퀀스 사용 |
+| data1 | String | Not Null, Max 100 | 테스트 문자열 1 |
+| data2 | String | Nullable, Max 200 | 테스트 문자열 2 |
+| amount | BigDecimal | Precision(18,2) | 금액 필드 |
+| status | String | Max 20, Default 'ACTIVE' | 상태 코드 |
+| createdAt | Instant | Not Null | 생성 시각 (UTC) |
+
+### 5.2 DDL
+
+```sql
+CREATE TABLE test_record (
+    id NUMBER(19) PRIMARY KEY,
+    data1 VARCHAR2(100) NOT NULL,
+    data2 VARCHAR2(200),
+    amount NUMBER(18,2),
+    status VARCHAR2(20) DEFAULT 'ACTIVE',
+    created_at TIMESTAMP NOT NULL
+);
+
+CREATE SEQUENCE test_record_seq START WITH 1 INCREMENT BY 1;
+```
+
+---
+
+## 6. 구현 단계 (Implementation Plan)
+
+### Phase 1: 프로젝트 기반 구축
+- Step 1: Maven 프로젝트 설정 (pom.xml)
+- Step 2: Spring Boot 메인 클래스 및 설정
+- Step 3: 데이터소스 설정 (application.yml, DataSourceConfig)
+
+### Phase 2: 도메인 및 인프라
+- Step 4: TestRecord 엔티티 클래스
+- Step 5: 스키마 DDL (schema.sql)
+- Step 6: 공통 Repository 인터페이스
+
+### Phase 3: JDBC 구현
+- Step 7: JdbcBatchInsertRepository 구현
+- Step 8: JdbcSingleInsertRepository 구현
+- Step 9: JDBC Repository 단위 테스트
+
+### Phase 4: MyBatis 구현
+- Step 10: MyBatis 설정 및 Mapper XML
+- Step 11: MyBatisBatchInsertRepository 구현
+- Step 12: MyBatisSingleInsertRepository 구현
+- Step 13: MyBatis Repository 단위 테스트
+
+### Phase 5: 벤치마크
+- Step 14: TestDataGenerator 구현
+- Step 15: BenchmarkRunner 구현 (배치 및 단건 모두 측정)
+- Step 16: BenchmarkReportGenerator 구현
+
+### Phase 6: 품질 보증
+- Step 17: 통합 테스트 작성
+- Step 18: 커버리지 검증 및 보강
+- Step 19: 문서화 (README.md)
+
+---
+
+## 7. 인터페이스 명세
+
+### 7.1 BatchInsertRepository (공통 인터페이스)
+
+```java
+public interface BatchInsertRepository {
+    /**
+     * 레코드 목록을 배치로 삽입
+     * @param records 삽입할 레코드 목록
+     * @return 삽입된 레코드 수
+     * @throws DataAccessException 데이터 접근 오류 시
+     */
+    int insertBatch(List<TestRecord> records);
+    
+    /**
+     * 배치 크기 설정
+     * @param batchSize 배치 크기 (기본 1000)
+     */
+    void setBatchSize(int batchSize);
+    
+    /**
+     * 테이블 데이터 전체 삭제 (벤치마크 초기화용)
+     */
+    void truncateTable();
+}
+```
+
+### 7.2 SingleInsertRepository (단건 삽입 인터페이스)
+
+```java
+public interface SingleInsertRepository {
+    /**
+     * 레코드 목록을 개별적으로 삽입 (단건씩)
+     * @param records 삽입할 레코드 목록
+     * @return 삽입된 레코드 수
+     * @throws DataAccessException 데이터 접근 오류 시
+     */
+    int insertSingle(List<TestRecord> records);
+
+    /**
+     * 테이블 데이터 전체 삭제 (벤치마크 초기화용)
+     */
+    void truncateTable();
+}
+```
+
+### 7.3 BenchmarkRunner
+
+```java
+public interface BenchmarkRunner {
+    /**
+     * 벤치마크 실행
+     * @param recordCount 테스트 레코드 수
+     * @param iterations 반복 횟수
+     * @return 벤치마크 결과
+     */
+    BenchmarkResult run(int recordCount, int iterations);
+}
+```
+
+---
+
+## 8. 설정 항목
+
+### application.yml 구조
+
+```yaml
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:oracle:thin:@localhost:1521:xe}
+    username: ${DB_USERNAME:benchmark}
+    password: ${DB_PASSWORD:benchmark}
+    driver-class-name: oracle.jdbc.OracleDriver
+
+benchmark:
+  batch-size: ${BATCH_SIZE:1000}
+  record-count: ${RECORD_COUNT:100000}
+  iterations: ${ITERATIONS:3}
+  warmup-count: ${WARMUP_COUNT:1000}
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    default-executor-type: SIMPLE
+```
+
+### pom.xml 구조
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.18</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.example</groupId>
+    <artifactId>java-oracle-benchmark</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <properties>
+        <java.version>1.8</java.version>
+        <mybatis-spring-boot.version>2.3.2</mybatis-spring-boot.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+            <version>${mybatis-spring-boot.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc8</artifactId>
+            <version>21.9.0.0</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.11</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+```
+
+---
+
+## 9. 제약 조건
+
+1. Oracle 연결 정보는 환경 변수로 주입 가능해야 함
+2. 테스트용 테이블은 매 벤치마크 실행 전 truncate
+3. 벤치마크는 최소 3회 반복 후 평균값 사용
+4. JVM Warm-up을 위해 본 측정 전 1000건 사전 실행
+5. 메모리 이슈 방지를 위해 대량 데이터는 스트리밍 처리 고려
+
+---
+
+## 10. 예상 산출물
+
+1. 실행 가능한 Spring Boot 애플리케이션
+2. JDBC/MyBatis 두 가지 구현체
+3. 벤치마크 실행 및 리포트 생성 기능
+4. 단위/통합 테스트 (커버리지 80%+)
+5. README.md (실행 방법, 설정 가이드)
+6. 벤치마크 결과 CSV 파일
+
+---
+
+## 11. 참고 자료
+
+- Oracle JDBC Developer's Guide
+- MyBatis Batch Operations
+- Spring Boot Testing
