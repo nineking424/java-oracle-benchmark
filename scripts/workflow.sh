@@ -232,6 +232,34 @@ EOF
     log_info "Checkpoint saved: $(basename $checkpoint_file)"
 }
 
+# Git 자동 커밋 함수
+auto_commit() {
+    local phase="$1"
+    local step="$2"
+    local message="$3"
+
+    # 변경사항 확인
+    if [ -z "$(git status --porcelain 2>/dev/null)" ]; then
+        log_info "No changes to commit"
+        return 0
+    fi
+
+    # 스테이징 및 커밋
+    git add -A
+    git commit -m "[$phase] $message
+
+Step: $step
+Generated with Claude Code
+
+Co-Authored-By: Claude <noreply@anthropic.com>" >/dev/null 2>&1
+
+    if [ $? -eq 0 ]; then
+        log_success "Committed: [$phase] $message"
+    else
+        log_warn "Commit failed (possibly nothing to commit)"
+    fi
+}
+
 update_state() {
     local phase=$1
     local status=$2
@@ -601,6 +629,7 @@ run_workflow() {
         
         save_checkpoint "DESIGN" 1 '{"artifact": "architecture.md"}'
         update_state "DESIGN" "COMPLETED" 1
+        auto_commit "DESIGN" 1 "Architecture document created"
         log_success "DESIGN phase completed"
     fi
     
@@ -633,6 +662,7 @@ run_workflow() {
         
         save_checkpoint "PLAN" 2 "{\"total_steps\": $total_steps}"
         update_state "PLAN" "COMPLETED" 2
+        auto_commit "PLAN" 2 "Implementation plan created"
         log_success "PLAN phase completed (Total steps: $total_steps)"
     fi
     
@@ -698,10 +728,12 @@ run_workflow() {
             
             # 체크포인트 저장
             save_checkpoint "IMPLEMENT" $((step + 2)) "{\"impl_step\": $step, \"status\": \"completed\"}"
+            auto_commit "IMPLEMENT" $((step + 2)) "Step $step completed"
             log_success "Implementation step $step completed"
         done
-        
+
         update_state "IMPLEMENT" "COMPLETED" $((total_steps + 2))
+        auto_commit "IMPLEMENT" $((total_steps + 2)) "Implementation phase completed"
         log_success "IMPLEMENT phase completed"
     fi
     
@@ -750,9 +782,10 @@ run_workflow() {
         fi
         
         update_state "REVIEW" "COMPLETED"
+        auto_commit "REVIEW" 0 "Code review passed"
         log_success "REVIEW phase completed"
     fi
-    
+
     # ============================================================
     # Phase 5: QA
     # ============================================================
@@ -774,14 +807,16 @@ run_workflow() {
         }
         
         update_state "QA" "COMPLETED"
+        auto_commit "QA" 0 "Quality assurance completed"
         log_success "QA phase completed"
     fi
-    
+
     # ============================================================
     # 완료
     # ============================================================
     print_phase "COMPLETE" "✅"
     update_state "COMPLETE" "SUCCESS"
+    auto_commit "COMPLETE" 0 "Workflow completed successfully"
     
     echo ""
     echo -e "${GREEN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
