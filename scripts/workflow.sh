@@ -156,7 +156,8 @@ save_checkpoint() {
     local step=$2
     local context=${3:-"{}"}
     
-    local checkpoint_file="$WORKFLOW_DIR/checkpoints/$(printf '%02d' $step)-${phase,,}.json"
+    local phase_lower=$(echo "$phase" | tr '[:upper:]' '[:lower:]')
+    local checkpoint_file="$WORKFLOW_DIR/checkpoints/$(printf '%02d' $step)-${phase_lower}.json"
     
     cat > "$checkpoint_file" << EOF
 {
