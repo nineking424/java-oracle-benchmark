@@ -46,10 +46,20 @@ JDBC와 MyBatis의 Insert 성능을 비교하는 벤치마크 프로젝트입니
 
 ### 환경 변수 설정
 
+프로젝트 루트에 `.env` 파일을 생성하고 DB 접속 정보를 설정합니다:
+
 ```bash
-export DB_URL=jdbc:oracle:thin:@localhost:1521:xe
-export DB_USERNAME=benchmark
-export DB_PASSWORD=benchmark
+# .env
+USERNAME="system"
+PASSWORD="oracle"
+SERVICE="ORCL"
+HOST="192.168.3.13"
+PORT="1521"
+```
+
+추가 설정이 필요한 경우:
+
+```bash
 export BATCH_SIZE=1000
 export RECORD_COUNT=100000
 ```
@@ -179,6 +189,67 @@ MyBatis Single Insert   |        52,000 |    1,923 |  1,800
 
 이 프로젝트는 AI Agent 기반의 자동화된 개발 워크플로우를 지원합니다.
 
+### 워크플로우 개요
+
+```mermaid
+flowchart LR
+    subgraph Phase["워크플로우 단계"]
+        INIT([INIT]) --> DESIGN([DESIGN])
+        DESIGN --> PLAN([PLAN])
+        PLAN --> IMPLEMENT([IMPLEMENT])
+        IMPLEMENT --> REVIEW([REVIEW])
+        REVIEW --> QA([QA])
+        QA --> COMPLETE([COMPLETE])
+    end
+
+    subgraph Gate["품질 게이트"]
+        G1{아키텍처 완성}
+        G2{컴파일/테스트 통과}
+        G3{리뷰 승인}
+        G4{커버리지 80%+}
+    end
+
+    DESIGN -.-> G1 -.-> IMPLEMENT
+    IMPLEMENT -.-> G2 -.-> REVIEW
+    REVIEW -.-> G3 -.-> QA
+    QA -.-> G4 -.-> COMPLETE
+```
+
+### Agent 상호작용
+
+```mermaid
+sequenceDiagram
+    participant O as Orchestrator
+    participant A as Architect
+    participant D as Developer
+    participant R as Reviewer
+    participant Q as QA
+    participant F as Fixer
+
+    O->>A: DESIGN 단계 시작
+    A->>O: architecture.md 제출
+    O->>D: IMPLEMENT 단계 시작
+    D->>O: 소스 코드 제출
+    O->>R: REVIEW 단계 시작
+
+    alt 리뷰 통과
+        R->>O: APPROVED
+        O->>Q: QA 단계 시작
+    else 리뷰 반려
+        R->>F: 이슈 전달
+        F->>D: 수정 코드 전달
+        D->>O: 재제출
+    end
+
+    alt QA 통과
+        Q->>O: 커버리지 충족
+        O->>O: COMPLETE
+    else QA 실패
+        Q->>F: 이슈 전달
+        F->>D: 수정 요청
+    end
+```
+
 ### Agent 역할
 
 | Agent | 역할 | 산출물 |
@@ -237,9 +308,9 @@ chmod +x scripts/*.sh
 ```yaml
 spring:
   datasource:
-    url: ${DB_URL:jdbc:oracle:thin:@localhost:1521:xe}
-    username: ${DB_USERNAME:benchmark}
-    password: ${DB_PASSWORD:benchmark}
+    url: jdbc:oracle:thin:@${HOST:localhost}:${PORT:1521}/${SERVICE:xe}
+    username: ${USERNAME:benchmark}
+    password: ${PASSWORD:benchmark}
 
 benchmark:
   batch-size: ${BATCH_SIZE:1000}
@@ -247,6 +318,8 @@ benchmark:
   iterations: ${ITERATIONS:3}
   warmup-count: ${WARMUP_COUNT:1000}
 ```
+
+> `.env` 파일의 환경 변수가 자동으로 적용됩니다.
 
 ---
 
