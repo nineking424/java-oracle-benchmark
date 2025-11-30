@@ -38,6 +38,67 @@ log() {
     echo -e "[$timestamp] [$level] $message" | tee -a "$LOG_FILE"
 }
 
+# 스피너 표시 (백그라운드 프로세스용)
+show_spinner() {
+    local pid=$1
+    local message=${2:-"Processing"}
+    local spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    local start_time=$(date +%s)
+    local i=0
+
+    # 커서 숨김
+    tput civis 2>/dev/null || true
+
+    while kill -0 "$pid" 2>/dev/null; do
+        local elapsed=$(($(date +%s) - start_time))
+        local mins=$((elapsed / 60))
+        local secs=$((elapsed % 60))
+        local spin_char="${spin:$((i % 10)):1}"
+        printf "\r  ${CYAN}%s${NC} %s ${YELLOW}[%02d:%02d]${NC}  " "$spin_char" "$message" "$mins" "$secs"
+        i=$((i + 1))
+        sleep 0.1
+    done
+
+    # 커서 복원 및 라인 클리어
+    tput cnorm 2>/dev/null || true
+    printf "\r\033[K"
+}
+
+# 경과 시간과 함께 명령 실행
+run_with_spinner() {
+    local message=$1
+    shift
+    local log_file=${1:-""}
+    shift
+    local cmd="$*"
+
+    local start_time=$(date +%s)
+
+    # 백그라운드로 실행
+    if [ -n "$log_file" ]; then
+        eval "$cmd" > "$log_file" 2>&1 &
+    else
+        eval "$cmd" > /dev/null 2>&1 &
+    fi
+    local pid=$!
+
+    # 스피너 표시
+    show_spinner $pid "$message"
+
+    # 결과 대기
+    wait $pid
+    local exit_code=$?
+    local elapsed=$(($(date +%s) - start_time))
+
+    if [ $exit_code -eq 0 ]; then
+        echo -e "  ${GREEN}✔${NC} $message ${CYAN}(${elapsed}s)${NC}"
+    else
+        echo -e "  ${RED}✘${NC} $message ${CYAN}(${elapsed}s)${NC}"
+    fi
+
+    return $exit_code
+}
+
 log_info() { log "${BLUE}INFO${NC}" "$1"; }
 log_warn() { log "${YELLOW}WARN${NC}" "$1"; }
 log_error() { log "${RED}ERROR${NC}" "$1"; }
@@ -261,17 +322,34 @@ $task
 
     # Claude 실행 (claude CLI 사용)
     if command -v claude &> /dev/null; then
+        local tmp_output=$(mktemp)
+        local start_time=$(date +%s)
+
+        # 백그라운드로 Claude 실행 (도구 사용 허용)
+        echo "$prompt" | claude --dangerously-skip-permissions -p > "$tmp_output" 2>&1 &
+        local pid=$!
+
+        # 스피너 표시
+        show_spinner $pid "Waiting for Claude ($agent)"
+
+        # 결과 대기
+        wait $pid || true
+        local elapsed=$(($(date +%s) - start_time))
+
+        # 결과 처리
         if [ -n "$output_file" ]; then
-            echo "$prompt" | claude --print > "$output_file" 2>&1 || true
-            log_info "Output saved to: $output_file"
+            mv "$tmp_output" "$output_file"
+            echo -e "  ${GREEN}✔${NC} Output saved: $(basename $output_file) ${CYAN}(${elapsed}s)${NC}"
         else
-            echo "$prompt" | claude --print || true
+            cat "$tmp_output"
+            rm -f "$tmp_output"
+            echo -e "  ${GREEN}✔${NC} Claude response received ${CYAN}(${elapsed}s)${NC}"
         fi
     else
         log_warn "Claude CLI not found. Please install Claude Code."
         log_info "Prompt saved to: /tmp/agent-prompt-$agent.txt"
         echo "$prompt" > "/tmp/agent-prompt-$agent.txt"
-        
+
         # 대안: 프롬프트를 파일로 저장하고 수동 실행 안내
         echo ""
         echo -e "${YELLOW}Claude CLI가 설치되지 않았습니다.${NC}"
@@ -281,7 +359,7 @@ $task
         echo ""
         read -p "작업 완료 후 Enter를 눌러 계속하세요..."
     fi
-    
+
     log_success "Agent $agent completed"
 }
 
@@ -292,10 +370,11 @@ $task
 run_quality_gate() {
     local gate=$1
     echo -e "\n🔍 Quality Gate: ${BOLD}$gate${NC}"
-    
+
     local result="FAIL"
     local details=""
-    
+    local log_file="/tmp/mvn-${gate}.log"
+
     # Maven pom.xml 확인
     if [ ! -f "$PROJECT_ROOT/pom.xml" ]; then
         log_warn "pom.xml not found. Skipping $gate gate."
@@ -304,32 +383,75 @@ run_quality_gate() {
 
     cd "$PROJECT_ROOT"
 
+    local start_time=$(date +%s)
+
     case $gate in
         "compile")
-            if mvn compile test-compile -q 2>/dev/null; then
+            # 백그라운드로 Maven 실행
+            mvn compile test-compile > "$log_file" 2>&1 &
+            local pid=$!
+
+            # 스피너 표시
+            show_spinner $pid "Compiling sources"
+
+            if wait $pid; then
                 result="PASS"
+            else
+                # 실패 시 에러 로그 출력
+                echo -e "\n${RED}Compile errors:${NC}"
+                grep -A 5 "\[ERROR\]" "$log_file" | head -30
             fi
             ;;
         "test")
-            if output=$(mvn test -q 2>&1); then
+            # 백그라운드로 테스트 실행
+            mvn test > "$log_file" 2>&1 &
+            local pid=$!
+
+            # 스피너 표시
+            show_spinner $pid "Executing tests"
+
+            if wait $pid; then
                 result="PASS"
-                details=$(echo "$output" | grep -oP '\d+ tests' | head -1 || echo "")
+                # 테스트 결과 추출 (다양한 패턴 지원)
+                details=$(grep -E "Tests run:|tests" "$log_file" | grep -oE '[0-9]+ tests?' | head -1 || echo "")
+                if [ -z "$details" ]; then
+                    details=$(grep "Tests run:" "$log_file" | head -1 | sed 's/.*Tests run: //' | cut -d',' -f1 || echo "")
+                    [ -n "$details" ] && details="$details tests"
+                fi
+            else
+                # 실패 시 에러 로그 출력
+                echo -e "\n${RED}Test failures:${NC}"
+                grep -B 2 -A 10 "FAILURE\|ERROR" "$log_file" | head -40
             fi
             ;;
         "coverage")
-            if mvn jacoco:report -q 2>/dev/null; then
+            # 백그라운드로 커버리지 리포트 생성
+            mvn jacoco:report > "$log_file" 2>&1 &
+            local pid=$!
+
+            # 스피너 표시
+            show_spinner $pid "Generating coverage report"
+
+            if wait $pid; then
                 local report_file="$PROJECT_ROOT/target/site/jacoco/index.html"
                 if [ -f "$report_file" ]; then
-                    local coverage=$(grep -oP 'Total[^%]*\K\d+' "$report_file" 2>/dev/null | head -1 || echo "0")
+                    # 커버리지 추출 (다양한 패턴 지원)
+                    local coverage=$(grep -oE 'Total[^%]*[0-9]+' "$report_file" 2>/dev/null | grep -oE '[0-9]+$' | head -1 || echo "0")
+                    if [ -z "$coverage" ] || [ "$coverage" = "0" ]; then
+                        # 대안 패턴
+                        coverage=$(grep -oE '[0-9]+%' "$report_file" 2>/dev/null | head -1 | tr -d '%' || echo "0")
+                    fi
                     details="${coverage}%"
-                    if [ "$coverage" -ge 80 ]; then
+                    if [ "$coverage" -ge 80 ] 2>/dev/null; then
                         result="PASS"
                     fi
                 fi
             fi
             ;;
     esac
-    
+
+    local elapsed=$(($(date +%s) - start_time))
+
     # 상태 업데이트
     local tmp=$(mktemp)
     jq --arg gate "$gate" \
@@ -341,12 +463,12 @@ run_quality_gate() {
           "result": $result,
           "details": $details
         }' "$STATE_FILE" > "$tmp" && mv "$tmp" "$STATE_FILE"
-    
+
     if [ "$result" = "PASS" ]; then
-        echo -e "  ${GREEN}✅ PASS${NC} $details"
+        echo -e "  ${GREEN}✅ PASS${NC} $details ${CYAN}(${elapsed}s)${NC}"
         return 0
     else
-        echo -e "  ${RED}❌ FAIL${NC} $details"
+        echo -e "  ${RED}❌ FAIL${NC} $details ${CYAN}(${elapsed}s)${NC}"
         return 1
     fi
 }

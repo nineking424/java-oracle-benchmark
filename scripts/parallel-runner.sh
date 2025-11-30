@@ -197,7 +197,7 @@ run_agent_background() {
 
         # Claude Code 실행
         if command -v claude &>/dev/null; then
-            echo "$prompt" | claude --print > ".agent-output.md" 2>&1
+            echo "$prompt" | claude --dangerously-skip-permissions -p > ".agent-output.md" 2>&1
         else
             log_warn "Claude CLI not found. Saving prompt to file."
             echo "$prompt" > ".agent-prompt.md"
