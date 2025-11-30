@@ -300,16 +300,27 @@ CREATE INDEX idx_test_record_created_at ON test_record(created_at);
 
 ## 7. 설정 구조
 
-### 7.1 application.yml
+### 7.1 .env 파일 (DB 접속 정보)
+
+```bash
+# .env
+USERNAME="system"
+PASSWORD="oracle"
+SERVICE="ORCL"
+HOST="192.168.3.13"
+PORT="1521"
+```
+
+### 7.2 application.yml
 
 ```yaml
 spring:
   application:
     name: java-oracle-benchmark
   datasource:
-    url: ${DB_URL:jdbc:oracle:thin:@localhost:1521:xe}
-    username: ${DB_USERNAME:benchmark}
-    password: ${DB_PASSWORD:benchmark}
+    url: jdbc:oracle:thin:@${HOST:localhost}:${PORT:1521}/${SERVICE:xe}
+    username: ${USERNAME:benchmark}
+    password: ${PASSWORD:benchmark}
     driver-class-name: oracle.jdbc.OracleDriver
     hikari:
       maximum-pool-size: 10
