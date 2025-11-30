@@ -1,0 +1,32 @@
+{
+  "version": "1.0",
+  "prd_hash": "initial",
+  "created_at": "2025-11-30T00:00:00Z",
+  "updated_at": "2025-11-30T00:00:00Z",
+  "workflow": {
+    "status": "NOT_STARTED",
+    "current_phase": "INIT",
+    "current_step": 0,
+    "total_steps": 0
+  },
+  "phases": {
+    "INIT": {"status": "PENDING"},
+    "DESIGN": {"status": "PENDING"},
+    "PLAN": {"status": "PENDING"},
+    "IMPLEMENT": {"status": "PENDING"},
+    "REVIEW": {"status": "PENDING"},
+    "QA": {"status": "PENDING"},
+    "COMPLETE": {"status": "PENDING"}
+  },
+  "quality_gates": {
+    "compile": {"last_run": null, "result": null},
+    "test": {"last_run": null, "result": null, "count": 0},
+    "coverage": {"last_run": null, "result": null, "percentage": 0}
+  },
+  "resume_context": {
+    "last_agent": null,
+    "last_action": null,
+    "pending_task": null,
+    "relevant_files": []
+  }
+}
