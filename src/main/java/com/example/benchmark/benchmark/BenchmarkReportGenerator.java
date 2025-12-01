@@ -131,7 +131,14 @@ public class BenchmarkReportGenerator {
     private void saveCsvReport(List<BenchmarkResult> results) {
         String timestamp = LocalDateTime.now().format(FILE_DATE_FORMAT);
         String filename = "benchmark_result_" + timestamp + ".csv";
-        Path filePath = Paths.get(filename);
+        Path dirPath = Paths.get("benchmark-results");
+        Path filePath = dirPath.resolve(filename);
+
+        try {
+            Files.createDirectories(dirPath);
+        } catch (IOException e) {
+            log.error("Failed to create benchmark-results directory: {}", e.getMessage());
+        }
 
         try (PrintWriter writer = new PrintWriter(Files.newBufferedWriter(filePath, StandardCharsets.UTF_8))) {
             writer.println(CSV_HEADER);
