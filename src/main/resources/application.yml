@@ -40,5 +40,9 @@ logging:
     com.example.benchmark: DEBUG
     org.springframework.jdbc: DEBUG
     org.mybatis: DEBUG
+  file:
+    path: logs
+    name: logs/benchmark.log
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

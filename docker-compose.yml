@@ -13,5 +13,6 @@ services:
       - ITERATIONS=${ITERATIONS:-3}
     volumes:
       - ./benchmark-results:/app/benchmark-results
+      - ./logs:/app/logs
     extra_hosts:
       - "host.docker.internal:host-gateway"
