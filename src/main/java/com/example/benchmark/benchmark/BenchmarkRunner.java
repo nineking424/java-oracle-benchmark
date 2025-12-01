@@ -15,6 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import static com.example.benchmark.util.StringUtils.repeat;
+
 /**
  * 벤치마크 실행기.
  *
@@ -66,9 +68,9 @@ public class BenchmarkRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        log.info("=".repeat(60));
+        log.info(repeat("=", 60));
         log.info("Starting Oracle Insert Performance Benchmark");
-        log.info("=".repeat(60));
+        log.info(repeat("=", 60));
         log.info("Configuration: {}", properties);
 
         List<BenchmarkResult> results = new ArrayList<>();
@@ -92,9 +94,9 @@ public class BenchmarkRunner implements CommandLineRunner {
         // 리포트 생성
         reportGenerator.generateReport(results);
 
-        log.info("=".repeat(60));
+        log.info(repeat("=", 60));
         log.info("Benchmark completed");
-        log.info("=".repeat(60));
+        log.info(repeat("=", 60));
     }
 
     private void performWarmup() {
@@ -103,7 +105,7 @@ public class BenchmarkRunner implements CommandLineRunner {
             return;
         }
 
-        log.info("-".repeat(60));
+        log.info(repeat("-", 60));
         log.info("Performing JVM warmup with {} records...", properties.getWarmupCount());
 
         List<TestRecord> warmupRecords = dataGenerator.generate(properties.getWarmupCount());
@@ -116,13 +118,13 @@ public class BenchmarkRunner implements CommandLineRunner {
         }
 
         log.info("Warmup completed");
-        log.info("-".repeat(60));
+        log.info(repeat("-", 60));
     }
 
     private BenchmarkResult runBatchBenchmark(BatchInsertRepository repository) {
-        log.info("-".repeat(60));
+        log.info(repeat("-", 60));
         log.info("Running batch benchmark: {}", repository.getTypeName());
-        log.info("-".repeat(60));
+        log.info(repeat("-", 60));
 
         repository.setBatchSize(properties.getBatchSize());
 
@@ -163,10 +165,10 @@ public class BenchmarkRunner implements CommandLineRunner {
     }
 
     private BenchmarkResult runSingleBenchmark(SingleInsertRepository repository, int recordCount) {
-        log.info("-".repeat(60));
+        log.info(repeat("-", 60));
         log.info("Running single insert benchmark: {} (limited to {} records)",
                 repository.getTypeName(), recordCount);
-        log.info("-".repeat(60));
+        log.info(repeat("-", 60));
 
         List<Long> durations = new ArrayList<>();
 

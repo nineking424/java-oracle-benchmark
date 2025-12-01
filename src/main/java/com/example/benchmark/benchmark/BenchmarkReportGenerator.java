@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import static com.example.benchmark.util.StringUtils.repeat;
+
 /**
  * 벤치마크 결과 리포트 생성기.
  *
@@ -47,9 +49,9 @@ public class BenchmarkReportGenerator {
 
     private void printConsoleReport(List<BenchmarkResult> results) {
         log.info("");
-        log.info("=".repeat(100));
+        log.info(repeat("=", 100));
         log.info("BENCHMARK RESULTS SUMMARY");
-        log.info("=".repeat(100));
+        log.info(repeat("=", 100));
         log.info("");
 
         // 헤더 출력
@@ -58,7 +60,7 @@ public class BenchmarkReportGenerator {
 
         log.info(String.format(headerFormat,
                 "Repository Type", "Records", "BatchSize", "Iterations", "Avg TPS", "Std Dev(ms)", "Min(ms)", "Max(ms)"));
-        log.info("-".repeat(120));
+        log.info(repeat("-", 120));
 
         for (BenchmarkResult result : results) {
             log.info(String.format(rowFormat,
@@ -72,12 +74,12 @@ public class BenchmarkReportGenerator {
                     result.getMaxDuration()));
         }
 
-        log.info("-".repeat(120));
+        log.info(repeat("-", 120));
         log.info("");
 
         // 상세 결과 출력
         log.info("DETAILED RESULTS:");
-        log.info("-".repeat(60));
+        log.info(repeat("-", 60));
 
         for (BenchmarkResult result : results) {
             log.info("");
@@ -103,7 +105,7 @@ public class BenchmarkReportGenerator {
         }
 
         log.info("PERFORMANCE COMPARISON:");
-        log.info("-".repeat(60));
+        log.info(repeat("-", 60));
 
         BenchmarkResult fastest = results.get(0);
         for (BenchmarkResult result : results) {

@@ -1,0 +1,10 @@
+target/
+.git/
+.idea/
+*.iml
+.workflow/
+.worktrees/
+*.csv
+*.md
+.env
+scripts/
