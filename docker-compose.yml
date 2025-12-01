@@ -1,7 +1,7 @@
 services:
   benchmark:
     build: .
-    container_name: oracle-benchmark
+    container_name: java-oracle-benchmark
     environment:
       - HOST=${HOST:-host.docker.internal}
       - PORT=${PORT:-1521}
