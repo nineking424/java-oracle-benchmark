@@ -17,33 +17,33 @@
     <insert id="insertOracle" parameterType="com.example.benchmark.domain.TestRecord">
         INSERT INTO test_record (id, data1, data2, amount, status, created_at)
         VALUES (test_record_seq.NEXTVAL,
-                #{record.data1},
-                #{record.data2},
-                #{record.amount},
-                #{record.status},
-                #{record.createdAt})
+                #{record.data1, jdbcType=VARCHAR},
+                #{record.data2, jdbcType=VARCHAR},
+                #{record.amount, jdbcType=NUMERIC},
+                #{record.status, jdbcType=VARCHAR},
+                #{record.createdAt, jdbcType=TIMESTAMP})
     </insert>
 
     <!-- H2용 Insert (시퀀스 함수 사용) -->
     <insert id="insertH2" parameterType="com.example.benchmark.domain.TestRecord">
         INSERT INTO test_record (id, data1, data2, amount, status, created_at)
         VALUES (NEXTVAL('test_record_seq'),
-                #{record.data1},
-                #{record.data2},
-                #{record.amount},
-                #{record.status},
-                #{record.createdAt})
+                #{record.data1, jdbcType=VARCHAR},
+                #{record.data2, jdbcType=VARCHAR},
+                #{record.amount, jdbcType=NUMERIC},
+                #{record.status, jdbcType=VARCHAR},
+                #{record.createdAt, jdbcType=TIMESTAMP})
     </insert>
 
-    <!-- 단일 레코드 삽입 (databaseId로 분기) -->
+    <!-- 단일 레코드 삽입 - Oracle 문법 사용 -->
     <insert id="insert" parameterType="com.example.benchmark.domain.TestRecord">
         INSERT INTO test_record (id, data1, data2, amount, status, created_at)
-        VALUES (NEXTVAL('test_record_seq'),
-                #{record.data1},
-                #{record.data2},
-                #{record.amount},
-                #{record.status},
-                #{record.createdAt})
+        VALUES (test_record_seq.NEXTVAL,
+                #{record.data1, jdbcType=VARCHAR},
+                #{record.data2, jdbcType=VARCHAR},
+                #{record.amount, jdbcType=NUMERIC},
+                #{record.status, jdbcType=VARCHAR},
+                #{record.createdAt, jdbcType=TIMESTAMP})
     </insert>
 
     <delete id="truncateTable">
