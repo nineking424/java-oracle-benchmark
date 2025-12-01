@@ -9,9 +9,9 @@ spring:
       continue-on-error: true
 
   datasource:
-    url: jdbc:oracle:thin:@${HOST:localhost}:${PORT:1521}/${SERVICE:xe}
-    username: ${USERNAME:benchmark}
-    password: ${PASSWORD:benchmark}
+    url: jdbc:oracle:thin:@${DB_HOST:localhost}:${DB_PORT:1521}/${DB_SERVICE:xe}
+    username: ${DB_USER:benchmark}
+    password: ${DB_PASSWORD:benchmark}
     driver-class-name: oracle.jdbc.OracleDriver
     hikari:
       maximum-pool-size: 10

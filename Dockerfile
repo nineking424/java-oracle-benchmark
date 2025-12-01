@@ -11,11 +11,11 @@ COPY src ./src
 RUN mvn package -DskipTests -B
 
 # Environment defaults (override at runtime)
-ENV HOST=host.docker.internal \
-    PORT=1521 \
-    SERVICE=ORCL \
-    USERNAME=system \
-    PASSWORD=oracle \
+ENV DB_HOST=host.docker.internal \
+    DB_PORT=1521 \
+    DB_SERVICE=ORCL \
+    DB_USER=system \
+    DB_PASSWORD=oracle \
     BATCH_SIZE=1000 \
     RECORD_COUNT=100000 \
     ITERATIONS=3

@@ -3,11 +3,11 @@ services:
     build: .
     container_name: java-oracle-benchmark
     environment:
-      - HOST=${DB_HOST:-host.docker.internal}
-      - PORT=${DB_PORT:-1521}
-      - SERVICE=${DB_SERVICE:-ORCL}
-      - USERNAME=${DB_USER:-system}
-      - PASSWORD=${DB_PASSWORD:-oracle}
+      - DB_HOST=${DB_HOST:-host.docker.internal}
+      - DB_PORT=${DB_PORT:-1521}
+      - DB_SERVICE=${DB_SERVICE:-ORCL}
+      - DB_USER=${DB_USER:-system}
+      - DB_PASSWORD=${DB_PASSWORD:-oracle}
       - BATCH_SIZE=${BATCH_SIZE:-1000}
       - RECORD_COUNT=${RECORD_COUNT:-100000}
       - ITERATIONS=${ITERATIONS:-3}

@@ -50,11 +50,11 @@ JDBC와 MyBatis의 Insert 성능을 비교하는 벤치마크 프로젝트입니
 
 ```bash
 # .env
-USERNAME="system"
-PASSWORD="oracle"
-SERVICE="ORCL"
-HOST="192.168.3.13"
-PORT="1521"
+DB_USER=system
+DB_PASSWORD=oracle
+DB_SERVICE=ORCL
+DB_HOST=192.168.3.13
+DB_PORT=1521
 ```
 
 추가 설정이 필요한 경우:
@@ -308,9 +308,9 @@ chmod +x scripts/*.sh
 ```yaml
 spring:
   datasource:
-    url: jdbc:oracle:thin:@${HOST:localhost}:${PORT:1521}/${SERVICE:xe}
-    username: ${USERNAME:benchmark}
-    password: ${PASSWORD:benchmark}
+    url: jdbc:oracle:thin:@${DB_HOST:localhost}:${DB_PORT:1521}/${DB_SERVICE:xe}
+    username: ${DB_USER:benchmark}
+    password: ${DB_PASSWORD:benchmark}
 
 benchmark:
   batch-size: ${BATCH_SIZE:1000}
