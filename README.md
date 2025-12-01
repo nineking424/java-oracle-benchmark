@@ -210,21 +210,68 @@ CREATE SEQUENCE test_record_seq START WITH 1 INCREMENT BY 1;
 - 콘솔 출력: 실시간 진행 상황 및 요약
 - CSV 파일: `benchmark-results/` 디렉토리에 저장
 
-### 예상 출력 형식
+### 출력 예시
 
 ```
-=====================================
-     BENCHMARK RESULTS SUMMARY
-=====================================
-Record Count: 100,000 | Iterations: 3
+====================================================================================================
+BENCHMARK RESULTS SUMMARY
+====================================================================================================
 
-Method                  | Avg Time (ms) | TPS      | StdDev
-------------------------|---------------|----------|--------
-JDBC Batch Insert       |         3,200 |   31,250 |    150
-MyBatis Batch Insert    |         3,800 |   26,316 |    200
-JDBC Single Insert      |        45,000 |    2,222 |  1,500
-MyBatis Single Insert   |        52,000 |    1,923 |  1,800
-=====================================
+| Repository Type      |      Records |  BatchSize | Iterations |      Avg TPS |  Std Dev(ms) |      Min(ms) |      Max(ms) |
+------------------------------------------------------------------------------------------------------------------------
+| JDBC-Batch           |      100,000 |       1000 |          3 |      7284.21 |       563.89 |        13085 |        14137 |
+| MyBatis-Batch        |      100,000 |       1000 |          3 |      4735.89 |       275.38 |        20804 |        21327 |
+| MyBatis-Single       |        1,000 |          1 |          3 |       770.42 |        54.29 |         1236 |         1337 |
+| JDBC-Single          |        1,000 |          1 |          3 |      1239.67 |        17.90 |          786 |          817 |
+------------------------------------------------------------------------------------------------------------------------
+
+DETAILED RESULTS:
+------------------------------------------------------------
+
+[JDBC-Batch]
+  Records: 100000, BatchSize: 1000, Iterations: 3
+  Durations: [13085, 14137, 13963] ms
+  Average Duration: 13728.33 ms
+  Average TPS: 7284.21
+  Std Deviation: 563.89 ms
+  Min/Max: 13085 / 14137 ms
+
+[MyBatis-Batch]
+  Records: 100000, BatchSize: 1000, Iterations: 3
+  Durations: [21215, 21327, 20804] ms
+  Average Duration: 21115.33 ms
+  Average TPS: 4735.89
+  Std Deviation: 275.38 ms
+  Min/Max: 20804 / 21327 ms
+
+[MyBatis-Single]
+  Records: 1000, BatchSize: 1, Iterations: 3
+  Durations: [1337, 1321, 1236] ms
+  Average Duration: 1298.00 ms
+  Average TPS: 770.42
+  Std Deviation: 54.29 ms
+  Min/Max: 1236 / 1337 ms
+
+[JDBC-Single]
+  Records: 1000, BatchSize: 1, Iterations: 3
+  Durations: [817, 817, 786] ms
+  Average Duration: 806.67 ms
+  Average TPS: 1239.67
+  Std Deviation: 17.90 ms
+  Min/Max: 786 / 817 ms
+
+PERFORMANCE COMPARISON:
+------------------------------------------------------------
+Fastest: JDBC-Batch with 7284.21 TPS
+
+  vs MyBatis-Batch: 1.54x faster
+  vs MyBatis-Single: 9.45x faster
+  vs JDBC-Single: 5.88x faster
+
+CSV report saved to: /app/benchmark-results/benchmark_result_20251201_074726.csv
+============================================================
+Benchmark completed
+============================================================
 ```
 
 ---
