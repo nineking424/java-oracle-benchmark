@@ -81,26 +81,55 @@ mvn jacoco:report
 mvn spring-boot:run
 ```
 
+### Docker 실행
+
+Docker를 사용하여 컨테이너 환경에서 벤치마크를 실행할 수 있습니다:
+
+```bash
+# Docker Compose로 실행
+source ./.env && docker compose up --build
+
+# 백그라운드 실행
+docker compose up -d --build
+
+# 종료
+docker compose down
+```
+
+환경 변수는 `.env` 파일 또는 명령줄에서 오버라이드 가능:
+
+```bash
+RECORD_COUNT=10000 docker compose up
+```
+
 ---
 
 ## 프로젝트 구조
 
 ```
 java-oracle-benchmark/
-├── PRD.txt                 # 요구사항 정의서
-├── CLAUDE.md               # AI 개발 지침
-├── .agents/                # Multi-Agent 역할 정의
-├── .workflow/              # 워크플로우 상태 관리
-├── scripts/                # 워크플로우 스크립트
+├── pom.xml                     # Maven 빌드 설정
+├── Dockerfile                  # Docker 이미지 빌드
+├── docker-compose.yml          # Docker Compose 설정
+├── .dockerignore               # Docker 빌드 제외
+├── .env                        # 환경 변수 (DB 접속 정보)
+├── PRD.txt                     # 요구사항 정의서
+├── CLAUDE.md                   # AI 개발 지침
+├── .agents/                    # Multi-Agent 역할 정의
+├── .workflow/                  # 워크플로우 상태 관리
+├── scripts/                    # 워크플로우 스크립트
 └── src/
     ├── main/
     │   ├── java/com/example/benchmark/
     │   │   ├── BenchmarkApplication.java
     │   │   ├── config/
     │   │   │   ├── DataSourceConfig.java
-    │   │   │   └── MyBatisConfig.java
+    │   │   │   ├── MyBatisConfig.java
+    │   │   │   └── BenchmarkProperties.java
     │   │   ├── domain/
     │   │   │   └── TestRecord.java
+    │   │   ├── exception/
+    │   │   │   └── BenchmarkException.java
     │   │   ├── repository/
     │   │   │   ├── BatchInsertRepository.java
     │   │   │   ├── SingleInsertRepository.java
@@ -115,17 +144,32 @@ java-oracle-benchmark/
     │   │   │   ├── BenchmarkResult.java
     │   │   │   └── BenchmarkReportGenerator.java
     │   │   └── util/
-    │   │       └── TestDataGenerator.java
+    │   │       ├── TestDataGenerator.java
+    │   │       └── StringUtils.java
     │   └── resources/
     │       ├── application.yml
     │       ├── schema.sql
     │       └── mapper/
     │           └── TestRecordMapper.xml
     └── test/
-        └── java/com/example/benchmark/
-            └── repository/
-                ├── JdbcBatchInsertRepositoryTest.java
-                └── MyBatisBatchInsertRepositoryTest.java
+        ├── java/com/example/benchmark/
+        │   ├── BenchmarkIntegrationTest.java
+        │   ├── domain/TestRecordTest.java
+        │   ├── exception/BenchmarkExceptionTest.java
+        │   ├── benchmark/
+        │   │   ├── BenchmarkRunnerTest.java
+        │   │   ├── BenchmarkResultTest.java
+        │   │   └── BenchmarkReportGeneratorTest.java
+        │   ├── repository/
+        │   │   ├── JdbcBatchInsertRepositoryTest.java
+        │   │   ├── JdbcSingleInsertRepositoryTest.java
+        │   │   ├── MyBatisBatchInsertRepositoryTest.java
+        │   │   └── MyBatisSingleInsertRepositoryTest.java
+        │   └── util/TestDataGeneratorTest.java
+        └── resources/
+            ├── application.yml
+            ├── application-test.yml
+            └── schema-h2.sql
 ```
 
 ---
